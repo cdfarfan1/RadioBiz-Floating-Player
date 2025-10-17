@@ -9,11 +9,25 @@ if (!customElements.get('radio-player')) {
             const userLogo = "https://radiobiz.com.ar/wp-content/uploads/2023/02/cropped-ICON-radiobiz.png";
             const startCollapsedMobile = this.getAttribute('start-collapsed-mobile') === 'true';
 
-            const lastPosition = JSON.parse(localStorage.getItem('radioPlayerPosition'));
+            // --- Lógica de Posicionamiento Inteligente (v2.6) ---
+            let lastPosition = JSON.parse(localStorage.getItem('radioPlayerPosition'));
+            if (lastPosition) {
+                // Si la posición guardada está fuera de la pantalla actual, anúlala.
+                // Usamos 88px como búfer, el tamaño del reproductor plegado.
+                const isPositionOutOfBounds = 
+                    lastPosition.left > window.innerWidth - 88 || 
+                    lastPosition.top > window.innerHeight - 88;
+
+                if (isPositionOutOfBounds) {
+                    lastPosition = null; // Anula la posición para que se aplique la de por defecto.
+                    localStorage.removeItem('radioPlayerPosition'); // Limpia el dato incorrecto.
+                }
+            }
+
             const lastPlayerState = JSON.parse(localStorage.getItem('radioPlayerState'));
 
-            const initialTop = (lastPosition && lastPosition.top) ? `${lastPosition.top}px` : (this.getAttribute('initial-top') || 'auto');
-            const initialLeft = (lastPosition && lastPosition.left) ? `${lastPosition.left}px` : (this.getAttribute('initial-left') || 'auto');
+            const initialTop = (lastPosition && typeof lastPosition.top === 'number') ? `${lastPosition.top}px` : (this.getAttribute('initial-top') || 'auto');
+            const initialLeft = (lastPosition && typeof lastPosition.left === 'number') ? `${lastPosition.left}px` : (this.getAttribute('initial-left') || 'auto');
             const initialVolume = (lastPlayerState && typeof lastPlayerState.volume === 'number') ? lastPlayerState.volume : 0.5;
             const shouldBePlaying = !!(lastPlayerState && lastPlayerState.isPlaying);
             let isCollapsed = (lastPlayerState && typeof lastPlayerState.isCollapsed === 'boolean') 
@@ -130,7 +144,7 @@ if (!customElements.get('radio-player')) {
             this.coverArtEl = this.shadowRoot.querySelector('.cover-art-image');
             this.userLogo = userLogo;
             this.volumePopupTimeout = null;
-            this.volumeSyncInterval = null; // *** NUEVO: Propiedad para el vigilante
+            this.volumeSyncInterval = null; 
 
             this.setVolume(initialVolume);
             if (shouldBePlaying) {
@@ -141,11 +155,10 @@ if (!customElements.get('radio-player')) {
             this.addEventListeners();
             this.connectToPusher();
             this.updateSongInfo("Radio en Vivo", "RadioBiz");
-            this.startVolumeSync(); // *** NUEVO: Iniciar el vigilante
+            this.startVolumeSync(); 
         }
 
         disconnectedCallback() {
-            // *** NUEVO: Limpieza automática al eliminar el elemento
             if (this.volumeSyncInterval) {
                 clearInterval(this.volumeSyncInterval);
             }
@@ -174,13 +187,12 @@ if (!customElements.get('radio-player')) {
             });
         }
 
-        // *** NUEVO: El vigilante de sincronización ***
         startVolumeSync() {
             if (this.volumeSyncInterval) clearInterval(this.volumeSyncInterval);
             this.volumeSyncInterval = setInterval(() => {
                 if (this.audio.volume.toFixed(2) !== parseFloat(this.volumeSlider.value).toFixed(2)) {
                     this.syncVolumeUI();
-                    this.savePlayerState(); // Guardar el estado cuando se detecta un cambio por hardware
+                    this.savePlayerState();
                 }
             }, 250);
         }
