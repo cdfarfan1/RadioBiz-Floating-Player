@@ -3,7 +3,7 @@
  * Plugin Name:   RadioBiz Floating Player
  * Plugin URI:    https://pragmaticsolutions.com.ar/radiobiz-player
  * Description:   Añade un reproductor de radio flotante, plegable y arrastrable con una interfaz pulida y controles inteligentes. Totalmente personalizable, con memoria de estado y compatible con dispositivos móviles.
- * Version:       2.6
+ * Version:       2.7
  * Author:        Cristian Farfan
  * Author URI:    https://cristianfarfan.com.ar
  * Requires at least: 5.0
@@ -96,7 +96,23 @@ function radiobiz_floating_player_options_page_html() {
 }
 
 function radiobiz_floating_player_enqueue_scripts() {
-    wp_enqueue_script( 'radiobiz-floating-player-script', plugin_dir_url( __FILE__ ) . 'js/player.js', array(), '2.6', true );
+    // Registra y encola Pusher.js desde su CDN, cumpliendo con las directrices de WordPress.
+    wp_enqueue_script( 
+        'pusher-js', 
+        'https://js.pusher.com/8.4.0-rc2/pusher.min.js', 
+        array(), // Sin dependencias para Pusher.
+        '8.4.0-rc2', // Versión del script.
+        true // Cargar en el footer.
+    );
+
+    // Encola nuestro script del reproductor, declarando 'pusher-js' como una dependencia.
+    wp_enqueue_script( 
+        'radiobiz-floating-player-script', 
+        plugin_dir_url( __FILE__ ) . 'js/player.js', 
+        array( 'pusher-js' ), // <- Asegura que Pusher se cargue ANTES que nuestro script.
+        '2.7', // Versión del plugin actualizada.
+        true // Cargar en el footer.
+    );
 }
 add_action( 'wp_enqueue_scripts', 'radiobiz_floating_player_enqueue_scripts' );
 
@@ -108,8 +124,8 @@ function radiobiz_floating_player_add_to_footer() {
     $initial_left = !empty($options['initial_left']) ? $options['initial_left'] . 'px' : 'auto';
     $start_collapsed = isset($options['start_collapsed_mobile']) && $options['start_collapsed_mobile'] === 'on';
 
+    // La etiqueta de script de Pusher ha sido eliminada de aquí para cumplir con las normas.
     echo '<!-- WordPress RadioBiz Player -->
-    <script src="https://js.pusher.com/8.4.0-rc2/pusher.min.js"></script>
     <radio-player 
         player-width="' . esc_attr($player_width) . '" 
         button-color="' . esc_attr($button_color) . '" 
