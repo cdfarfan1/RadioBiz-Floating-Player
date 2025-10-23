@@ -6,24 +6,34 @@ if (!customElements.get('radio-player')) {
 
             const playerWidth = this.getAttribute('player-width') || '320';
             const buttonColor = this.getAttribute('button-color') || '#ff007a';
-            const userLogo = "https://radiobiz.com.ar/wp-content/uploads/2023/02/cropped-ICON-radiobiz.png";
+            this.userLogo = "https://radiobiz.com.ar/wp-content/uploads/2023/02/cropped-ICON-radiobiz.png";
             const startCollapsedMobile = this.getAttribute('start-collapsed-mobile') === 'true';
-
+            
             const lastPlayerState = JSON.parse(localStorage.getItem('radioPlayerState'));
-
             const initialVolume = (lastPlayerState && typeof lastPlayerState.volume === 'number') ? lastPlayerState.volume : 0.5;
             const shouldBePlaying = !!(lastPlayerState && lastPlayerState.isPlaying);
-            let isCollapsed = (lastPlayerState && typeof lastPlayerState.isCollapsed === 'boolean') 
+            const isCollapsed = (lastPlayerState && typeof lastPlayerState.isCollapsed === 'boolean') 
                 ? lastPlayerState.isCollapsed 
                 : (startCollapsedMobile && window.innerWidth < 768);
 
-            // --- Lógica de Posicionamiento Mejorada (v2.8) ---
-            const { finalTop, finalLeft } = this.validateAndSetPosition(isCollapsed);
+            const initialTop = this.getAttribute('initial-top') || 'auto';
+            const initialLeft = this.getAttribute('initial-left') || 'auto';
 
             this.shadowRoot.innerHTML = `
                 <style>
-                    :host { display: block; position: fixed; z-index: 10000; font-family: sans-serif; 
-                           top: ${finalTop}; left: ${finalLeft}; right: ${finalLeft === 'auto' ? '20px' : 'auto'}; bottom: ${finalTop === 'auto' ? '20px' : 'auto'}; touch-action: none; }
+                    :host { 
+                        display: block; 
+                        position: fixed; 
+                        z-index: 10000; 
+                        font-family: sans-serif; 
+                        top: ${initialTop}; 
+                        left: ${initialLeft}; 
+                        right: ${initialLeft === 'auto' ? '20px' : 'auto'}; 
+                        bottom: ${initialTop === 'auto' ? '20px' : 'auto'}; 
+                        touch-action: none; 
+                        transition: top 0.3s ease, left 0.3s ease; /* Transición suave al ajustar posición */
+                    }
+                    /* ... (resto de los estilos sin cambios) ... */
                     .player-container { position: relative; width: ${playerWidth}px; max-width: 90vw; transition: width 0.3s ease, height 0.3s ease; }
                     .wrapper { display: flex; flex-direction: column; background: rgba(20, 20, 20, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); 
                                border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); 
@@ -38,29 +48,22 @@ if (!customElements.get('radio-player')) {
                     .play-btn-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; background: rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.2s; cursor: pointer; }
                     .cover-art-container:hover .play-btn-overlay, .player-container.collapsed .play-btn-overlay { opacity: 1; }
                     .play-btn-overlay svg { width: 35px; height: 35px; fill: #fff; }
-                    
                     .song-info { display: flex; flex-direction: column; justify-content: center; min-width: 0; margin-left: 15px; text-align: left; color: #fff; overflow: hidden; }
                     .song-title, .song-artist { white-space: nowrap; }
                     .song-title.is-overflowing, .song-artist.is-overflowing { animation: marquee 12s linear infinite; }
                     .song-title { font-size: 1.1em; font-weight: 700; }
                     .song-artist { font-size: 0.9em; opacity: 0.9; }
-
                     .volume-bar { width: 100%; padding: 10px 0 0 0; box-sizing: border-box; }
                     .volume-slider { width: 100%; cursor: pointer; -webkit-appearance: none; appearance: none; background: rgba(255,255,255,0.3); border-radius: 5px; height: 5px; }
                     .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 15px; height: 15px; border-radius: 50%; background: ${buttonColor}; cursor: pointer; }
                     .toggle-collapse-btn { position: absolute; top: 0; right: 0; width: 28px; height: 28px; border-radius: 50%; background: #333; border: 2px solid #fff; display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 2; transition: all 0.3s; transform: translate(40%, -40%); }
                     .toggle-collapse-btn svg { width: 16px; height: 16px; fill: #fff; transition: transform 0.3s; }
-                    
-                    /* --- Controles Plegados --- */
                     .collapsed-controls { position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 110%); display: none; align-items: center; flex-direction: column; gap: 8px; }
                     .volume-icon-collapsed { cursor: pointer; width: 24px; height: 24px; fill: #fff; opacity: 0.8; transition: opacity 0.2s; }
                     .volume-icon-collapsed:hover { opacity: 1; }
-                    .volume-popup { position: absolute; bottom: 35px; background: rgba(30,30,30,0.8); backdrop-filter: blur(5px); border-radius: 8px; padding: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); 
-                                      transform-origin: bottom center; transition: transform 0.2s ease, opacity 0.2s ease; opacity: 0; transform: scale(0.8); pointer-events: none; }
+                    .volume-popup { position: absolute; bottom: 35px; background: rgba(30,30,30,0.8); backdrop-filter: blur(5px); border-radius: 8px; padding: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); transform-origin: bottom center; transition: transform 0.2s ease, opacity 0.2s ease; opacity: 0; transform: scale(0.8); pointer-events: none; }
                     .volume-popup.visible { opacity: 1; transform: scale(1); pointer-events: auto; }
                     .volume-slider-popup { width: 120px; }
-
-                    /* --- ESTADOS PLEGADOS --- */
                     .player-container.collapsed { width: 88px; }
                     .player-container.collapsed .wrapper { width: 88px; height: 88px; padding: 0; border-radius: 50%; background: none; backdrop-filter: none; box-shadow: none; border: 4px solid ${buttonColor}; }
                     .player-container.collapsed .drag-handle { left: 50%; top: -15px; transform: translate(-50%, 0) rotate(90deg); }
@@ -70,23 +73,16 @@ if (!customElements.get('radio-player')) {
                     .player-container.collapsed .cover-art-container { width: 80px; height: 80px; }
                     .player-container.collapsed .toggle-collapse-btn { transform: translate(0, -130%) rotate(180deg); }
                     .player-container.collapsed .collapsed-controls { display: flex; }
-                    
                     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-                    @keyframes marquee {
-                        0% { transform: translateX(5%); }
-                        15% { transform: translateX(5%); }
-                        85% { transform: translateX(calc(-100% - 5px)); }
-                        100% { transform: translateX(calc(-100% - 5px)); }
-                    }
+                    @keyframes marquee { 0% { transform: translateX(5%); } 15% { transform: translateX(5%); } 85% { transform: translateX(calc(-100% - 5px)); } 100% { transform: translateX(calc(-100% - 5px)); } }
                 </style>
-
                 <div class="player-container ${isCollapsed ? 'collapsed' : ''}">
                     <div class="drag-handle" title="Mover reproductor"><svg viewBox="0 0 24 24"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg></div>
                     <div class="toggle-collapse-btn" title="Plegar/Desplegar"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></div>
                     <div class="wrapper">
                         <div class="main-panel">
                             <div class="cover-art-container">
-                                <img src="${userLogo}" class="cover-art-image" alt="RadioBiz Logo">
+                                <img src="${this.userLogo}" class="cover-art-image" alt="RadioBiz Logo">
                                 <div class="play-btn-overlay" title="Play/Pause">
                                     <svg class="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
                                     <svg class="pause-icon" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>
@@ -111,7 +107,6 @@ if (!customElements.get('radio-player')) {
                 </div>
             `;
 
-            // --- Lógica del reproductor ---
             this.audio = this.shadowRoot.querySelector('audio');
             this.container = this.shadowRoot.querySelector('.player-container');
             this.wrapper = this.shadowRoot.querySelector('.wrapper');
@@ -128,9 +123,9 @@ if (!customElements.get('radio-player')) {
             this.songTitleEl = this.shadowRoot.querySelector('.song-title');
             this.songArtistEl = this.shadowRoot.querySelector('.song-artist');
             this.coverArtEl = this.shadowRoot.querySelector('.cover-art-image');
-            this.userLogo = userLogo;
+            
             this.volumePopupTimeout = null;
-            this.volumeSyncInterval = null; 
+            this.volumeSyncInterval = null;
 
             this.setVolume(initialVolume);
             if (shouldBePlaying) {
@@ -141,29 +136,35 @@ if (!customElements.get('radio-player')) {
             this.addEventListeners();
             this.connectToPusher();
             this.updateSongInfo("Radio en Vivo", "RadioBiz");
-            this.startVolumeSync(); 
+            this.startVolumeSync();
         }
 
-        validateAndSetPosition(isCollapsed) {
+        // --- Nuevo ciclo de vida `connectedCallback` (v2.9) ---
+        connectedCallback() {
+            // Espera un instante para que el elemento se renderice antes de calcular su posición.
+            setTimeout(() => this.validateAndSetPosition(), 50); 
+        }
+
+        validateAndSetPosition() {
             const lastPosition = JSON.parse(localStorage.getItem('radioPlayerPosition'));
-            const defaultTop = this.getAttribute('initial-top') || 'auto';
-            const defaultLeft = this.getAttribute('initial-left') || 'auto';
+            if (!lastPosition || typeof lastPosition.top !== 'number') return; // Salir si no hay posición guardada
 
-            let finalTop = defaultTop;
-            let finalLeft = defaultLeft;
+            const isCollapsed = this.container.classList.contains('collapsed');
+            const playerHeight = this.offsetHeight;
+            const playerWidth = this.offsetWidth;
 
-            if (lastPosition && typeof lastPosition.top === 'number') {
-                const playerHeight = isCollapsed ? 88 : this.shadowRoot.querySelector('.wrapper').offsetHeight || 130;
-                const playerWidth = isCollapsed ? 88 : parseInt(this.getAttribute('player-width') || '320', 10);
+            if (playerHeight === 0 || playerWidth === 0) return; // Salir si las dimensiones aún no son válidas
 
-                const maxTop = window.innerHeight - playerHeight;
-                const maxLeft = window.innerWidth - playerWidth;
+            const maxTop = window.innerHeight - playerHeight;
+            const maxLeft = window.innerWidth - playerWidth;
 
-                finalTop = `${Math.max(0, Math.min(lastPosition.top, maxTop))}px`;
-                finalLeft = `${Math.max(0, Math.min(lastPosition.left, maxLeft))}px`;
-            }
+            const finalTop = Math.max(0, Math.min(lastPosition.top, maxTop));
+            const finalLeft = Math.max(0, Math.min(lastPosition.left, maxLeft));
 
-            return { finalTop, finalLeft };
+            this.style.top = `${finalTop}px`;
+            this.style.left = `${finalLeft}px`;
+            this.style.right = 'auto';
+            this.style.bottom = 'auto';
         }
 
         disconnectedCallback() {
@@ -266,6 +267,8 @@ if (!customElements.get('radio-player')) {
                 this.checkTextOverflow(this.songTitleEl);
                 this.checkTextOverflow(this.songArtistEl);
             }, 300);
+             // Re-validar la posición después de plegar/desplegar
+            setTimeout(() => this.validateAndSetPosition(), 350);
         }
 
         initDrag() {
@@ -288,8 +291,13 @@ if (!customElements.get('radio-player')) {
                 if (!isDragging) return;
                 e.preventDefault();
                 const event = e.touches ? e.touches[0] : e;
-                this.style.top = `${event.clientY - offsetY}px`;
-                this.style.left = `${event.clientX - offsetX}px`;
+                const newTop = event.clientY - offsetY;
+                const newLeft = event.clientX - offsetX;
+                const maxTop = window.innerHeight - this.offsetHeight;
+                const maxLeft = window.innerWidth - this.offsetWidth;
+
+                this.style.top = `${Math.max(0, Math.min(newTop, maxTop))}px`;
+                this.style.left = `${Math.max(0, Math.min(newLeft, maxLeft))}px`;
                 this.style.right = 'auto';
                 this.style.bottom = 'auto';
             };
@@ -297,7 +305,7 @@ if (!customElements.get('radio-player')) {
             const onDragEnd = () => {
                 if (!isDragging) return;
                 isDragging = false;
-                this.style.transition = '';
+                this.style.transition = 'top 0.3s ease, left 0.3s ease';
                 localStorage.setItem('radioPlayerPosition', JSON.stringify({ top: this.offsetTop, left: this.offsetLeft }));
                 document.removeEventListener('mousemove', onDragMove);
                 document.removeEventListener('touchmove', onDragMove);

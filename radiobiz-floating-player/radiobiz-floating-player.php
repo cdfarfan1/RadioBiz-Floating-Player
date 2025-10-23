@@ -3,7 +3,7 @@
  * Plugin Name:   RadioBiz Floating Player
  * Plugin URI:    https://pragmaticsolutions.com.ar/radiobiz-player
  * Description:   Añade un reproductor de radio flotante, plegable y arrastrable con una interfaz pulida y controles inteligentes. Totalmente personalizable, con memoria de estado y compatible con dispositivos móviles.
- * Version:       2.8
+ * Version:       2.9
  * Author:        Cristian Farfan
  * Author URI:    https://cristianfarfan.com.ar
  * Requires at least: 5.0
@@ -110,7 +110,7 @@ function radiobiz_floating_player_enqueue_scripts() {
         'radiobiz-floating-player-script', 
         plugin_dir_url( __FILE__ ) . 'js/player.js', 
         array( 'pusher-js' ), // <- Asegura que Pusher se cargue ANTES que nuestro script.
-        '2.8', // Versión del plugin actualizada.
+        '2.9', // Versión del plugin actualizada.
         true // Cargar en el footer.
     );
 }
