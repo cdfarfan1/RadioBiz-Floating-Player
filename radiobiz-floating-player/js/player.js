@@ -9,35 +9,21 @@ if (!customElements.get('radio-player')) {
             const userLogo = "https://radiobiz.com.ar/wp-content/uploads/2023/02/cropped-ICON-radiobiz.png";
             const startCollapsedMobile = this.getAttribute('start-collapsed-mobile') === 'true';
 
-            // --- Lógica de Posicionamiento Inteligente (v2.6) ---
-            let lastPosition = JSON.parse(localStorage.getItem('radioPlayerPosition'));
-            if (lastPosition) {
-                // Si la posición guardada está fuera de la pantalla actual, anúlala.
-                // Usamos 88px como búfer, el tamaño del reproductor plegado.
-                const isPositionOutOfBounds = 
-                    lastPosition.left > window.innerWidth - 88 || 
-                    lastPosition.top > window.innerHeight - 88;
-
-                if (isPositionOutOfBounds) {
-                    lastPosition = null; // Anula la posición para que se aplique la de por defecto.
-                    localStorage.removeItem('radioPlayerPosition'); // Limpia el dato incorrecto.
-                }
-            }
-
             const lastPlayerState = JSON.parse(localStorage.getItem('radioPlayerState'));
 
-            const initialTop = (lastPosition && typeof lastPosition.top === 'number') ? `${lastPosition.top}px` : (this.getAttribute('initial-top') || 'auto');
-            const initialLeft = (lastPosition && typeof lastPosition.left === 'number') ? `${lastPosition.left}px` : (this.getAttribute('initial-left') || 'auto');
             const initialVolume = (lastPlayerState && typeof lastPlayerState.volume === 'number') ? lastPlayerState.volume : 0.5;
             const shouldBePlaying = !!(lastPlayerState && lastPlayerState.isPlaying);
             let isCollapsed = (lastPlayerState && typeof lastPlayerState.isCollapsed === 'boolean') 
                 ? lastPlayerState.isCollapsed 
                 : (startCollapsedMobile && window.innerWidth < 768);
 
+            // --- Lógica de Posicionamiento Mejorada (v2.8) ---
+            const { finalTop, finalLeft } = this.validateAndSetPosition(isCollapsed);
+
             this.shadowRoot.innerHTML = `
                 <style>
                     :host { display: block; position: fixed; z-index: 10000; font-family: sans-serif; 
-                           top: ${initialTop}; left: ${initialLeft}; right: ${initialLeft === 'auto' ? '20px' : 'auto'}; bottom: ${initialTop === 'auto' ? '20px' : 'auto'}; touch-action: none; }
+                           top: ${finalTop}; left: ${finalLeft}; right: ${finalLeft === 'auto' ? '20px' : 'auto'}; bottom: ${finalTop === 'auto' ? '20px' : 'auto'}; touch-action: none; }
                     .player-container { position: relative; width: ${playerWidth}px; max-width: 90vw; transition: width 0.3s ease, height 0.3s ease; }
                     .wrapper { display: flex; flex-direction: column; background: rgba(20, 20, 20, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); 
                                border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); 
@@ -156,6 +142,28 @@ if (!customElements.get('radio-player')) {
             this.connectToPusher();
             this.updateSongInfo("Radio en Vivo", "RadioBiz");
             this.startVolumeSync(); 
+        }
+
+        validateAndSetPosition(isCollapsed) {
+            const lastPosition = JSON.parse(localStorage.getItem('radioPlayerPosition'));
+            const defaultTop = this.getAttribute('initial-top') || 'auto';
+            const defaultLeft = this.getAttribute('initial-left') || 'auto';
+
+            let finalTop = defaultTop;
+            let finalLeft = defaultLeft;
+
+            if (lastPosition && typeof lastPosition.top === 'number') {
+                const playerHeight = isCollapsed ? 88 : this.shadowRoot.querySelector('.wrapper').offsetHeight || 130;
+                const playerWidth = isCollapsed ? 88 : parseInt(this.getAttribute('player-width') || '320', 10);
+
+                const maxTop = window.innerHeight - playerHeight;
+                const maxLeft = window.innerWidth - playerWidth;
+
+                finalTop = `${Math.max(0, Math.min(lastPosition.top, maxTop))}px`;
+                finalLeft = `${Math.max(0, Math.min(lastPosition.left, maxLeft))}px`;
+            }
+
+            return { finalTop, finalLeft };
         }
 
         disconnectedCallback() {
